@@ -1,0 +1,8 @@
+{
+  "verbose": true,
+  "preset": "ts-jest",
+  "transform": {
+    "\\.[jt]sx?$": "ts-jest"
+  },
+  "extensionsToTreatAsEsm": [".ts"]
+}
