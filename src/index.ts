@@ -5,10 +5,28 @@ import { getTypePackageName, getOriginalPackageName } from './utils/transform';
 import { getImports } from './utils/dependency';
 import { EventEmitter } from 'events';
 
+type File = { name: string, version?: string, path: string };
 export interface ResolverOptions {
-  unpkg?: string;
   resolutions?: Record<string, string>;
-  contentResolver?: (this: Resolver, params: { name: string, version?: string, path: string }) => Promise<string>;
+  contentResolver?: (params: File) => Promise<string>;
+}
+
+export const unpkgContentResolver = async (params: File) => {
+  const key = `${params.name}@${params.version}/${params.path}`;
+  const res = await fetch(`https://unpkg.com/${key}`);
+  if (res.status !== 200) {
+    return '';
+  }
+  return await res.text();
+}
+
+export const jsdelivrContentResolver = async (params: File) => {
+  const key = `${params.name}@${params.version}/${params.path}`;
+  const res = await fetch(`https://cdn.jsdelivr.net/npm/${key}`);
+  if (res.status !== 200) {
+    return '';
+  }
+  return await res.text();
 }
 
 export class Resolver {
@@ -17,28 +35,24 @@ export class Resolver {
   private cache = new Map<string, string>();
   private resolutions: Record<string, string> = {};
   private downloadCache: string[] = [];
-  private unpkg = 'https://unpkg.com/';
   public emitter = new EventEmitter();
+  private _contentResolver = unpkgContentResolver;
 
-  private contentResolver: NonNullable<ResolverOptions['contentResolver']> = async ({ name, path = '', version = '>=0' }) => {
-    const key = `${name}@${this.resolutions[name] ?? version}/${path}`;
+  private contentResolver = async (params: File) => {
+    const { name, path = '' } = params;
+    const version = this.resolutions[name] ?? params.version;
+    const key = `${name}@${version}/${path}`;
     if (this.downloadCache.includes(key)) {
       return '';
     }
-    const res = await fetch(`${this.unpkg}${key}`);
+    const content = await this._contentResolver({ name, path, version });
     this.downloadCache.push(key);
-    if (res.status !== 200) {
-      return '';
-    }
-    return await res.text();
+    return content;
   }
 
   constructor(options?: ResolverOptions) {
-    if (options?.unpkg) {
-      this.unpkg = options.unpkg.endsWith('/') ? options.unpkg : `${options.unpkg}/`;
-    }
     if (options?.contentResolver) {
-      this.contentResolver = options.contentResolver;
+      this._contentResolver = options.contentResolver;
     }
     if (options?.resolutions) {
       this.resolutions = options.resolutions;

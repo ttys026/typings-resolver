@@ -14,9 +14,6 @@
     "declaration": true,
     "baseUrl": ".",
     "outDir": "./dist",
-    "paths": {
-      "jquery": ["node_modules/abab"] // this mapping is relative to "baseUrl"
-    }
   },
   "include": ["src"]
 }
