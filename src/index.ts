@@ -126,7 +126,12 @@ export class Resolver {
         await Promise.all(tasks);
       } else {
         const name = this.isBuiltinModules(relImp) ? '@types/node' : relImp;
-        const pkg = await this.getPackageJson({ name, version: params.version });
+        // try to get deps version from previous package.json
+        const prevPkg = await this.getPackageJson({ name: params.name });
+        const dependencies = { ...prevPkg.peerDependencies, ...prevPkg.devDependencies, ...prevPkg.dependencies };
+        // use @types scope first if declared
+        const pkgVersion = dependencies[getTypePackageName(name)] ?? dependencies[name] ?? '>=0';
+        const pkg = await this.getPackageJson({ name, version: pkgVersion });
         const addInfo = pkg.version ? { name, version: pkg.version } : { name };
         await this._addPackage(addInfo);
       }
