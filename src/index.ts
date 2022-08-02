@@ -1,6 +1,6 @@
 import path from 'path-browserify';
 import fetch from 'cross-fetch';
-import { getTypePackageName, getOriginalPackageName } from './utils/transform';
+import { getTypePackageName, getOriginalPackageName, formatPackageName } from './utils/transform';
 import { getImports } from './utils/dependency';
 import { EventEmitter } from 'events';
 
@@ -41,6 +41,9 @@ export class Resolver {
     const { name, path = '' } = params;
     const version = this.resolutions[name] ?? params.version ?? '>=0';
     const key = `${name}@${version}/${path}`;
+    if (!name) {
+      return '';
+    }
     if (this.downloadCache.includes(key)) {
       return '';
     }
@@ -90,15 +93,17 @@ export class Resolver {
 
   private async getProperPackageName(params: { name: string, version?: string }) {
     const pkgJson = await this.getPackageJson(params);
+
     const typeEntry = pkgJson.typings || pkgJson.types;
     if (typeEntry) {
       return { name: params.name, version: pkgJson.version, path: 'package.json' };
     }
     if (!params.name.startsWith('@types/')) {
-      const pkgJson = await this.getPackageJson({ ...params, name: getTypePackageName(params.name) });
-      const typeEntry = pkgJson.typings || pkgJson.types;
+      const version = pkgJson.version ? `<=${pkgJson.version}` : '>=0';
+      const typePkgJson = await this.getPackageJson({ name: getTypePackageName(params.name), version });
+      const typeEntry = typePkgJson.typings || typePkgJson.types;
       if (typeEntry) {
-        return { name: pkgJson.name, version: pkgJson.version, path: 'package.json' };
+        return { name: typePkgJson.name, version: typePkgJson.version, path: 'package.json' };
       }
     }
     return false;
@@ -125,15 +130,29 @@ export class Resolver {
         }
         await Promise.all(tasks);
       } else {
-        const name = this.isBuiltinModules(relImp) ? '@types/node' : relImp;
+        const [pkgName, exportsPath] = formatPackageName(relImp);
+        const name = this.isBuiltinModules(pkgName) ? '@types/node' : pkgName;
         // try to get deps version from previous package.json
         const prevPkg = await this.getPackageJson({ name: params.name });
         const dependencies = { ...prevPkg.peerDependencies, ...prevPkg.devDependencies, ...prevPkg.dependencies };
         // use @types scope first if declared
         const pkgVersion = dependencies[getTypePackageName(name)] ?? dependencies[name] ?? '>=0';
+
         const pkg = await this.getPackageJson({ name, version: pkgVersion });
-        const addInfo = pkg.version ? { name, version: pkg.version } : { name };
-        await this._addPackage(addInfo);
+        const addInfo = pkg?.version ? { name, version: pkg.version } : { name };
+        const properPackage = await this._addPackage(addInfo);
+
+        // handle imports like: "scheduler/tracing"
+        if (exportsPath && exportsPath !== (properPackage?.types || properPackage?.typings)) {
+          const tasks: Promise<void>[] = [
+            this.addFile({ name: properPackage.name, path: exportsPath, version: pkgVersion }),
+          ];
+          if (!exportsPath.endsWith('.d.ts')) {
+            tasks.push(this.addFile({ name: properPackage.name, path: `${exportsPath}.d.ts`, version: pkgVersion }))
+            tasks.push(this.addFile({ name: properPackage.name, path: `${exportsPath}/index.d.ts`, version: pkgVersion }))
+          }
+          await Promise.all(tasks)
+        }
       }
     }))
   }
@@ -158,6 +177,7 @@ export class Resolver {
       }
       await Promise.all(tasks)
     }
+    return pkgJson;
   }
 
   public async addPackage(params: { name: string, version?: string }) {

@@ -4,6 +4,8 @@
 
 A lib to recursively resolve all typings files of a package. Works both in browser and in node environment.
 
+[demo](https://codesandbox.io/s/affectionate-snow-4x6q0v)
+
 ## Install
 
 ```bash

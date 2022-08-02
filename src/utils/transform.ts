@@ -1,3 +1,9 @@
+export const formatPackageName = (packageName: string) => {
+  const [scope, name, ...rest] = packageName.split('/');
+  const pkgName = packageName.startsWith('@') ? `${scope}/${name}` : scope;
+  return [pkgName, [name, ...rest].join('/')]
+}
+
 export const getTypePackageName = (name: string) => {
   return `@types/${name.startsWith('@') ? name.slice(1).replace(/\//, '__') : name
     }`;
