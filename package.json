@@ -1,13 +1,13 @@
 {
   "name": "typings-resolver",
-  "version": "0.0.0-beta.0",
+  "version": "0.0.0-beta.1",
   "description": "Resolve all Typescript Definitions Files",
   "types": "dist/index.d.ts",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "scripts": {
     "build": "tsup",
-    "test": "npm run build && jest --config ./jest.config.json",
+    "test": "npm run build && jest --config ./jest.config.json --forceExit",
     "lint": "eslint ./src"
   },
   "files": [

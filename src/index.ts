@@ -1,6 +1,5 @@
-import 'path-browserify';
+import path from 'path-browserify';
 import fetch from 'cross-fetch';
-import path from 'path';
 import { getTypePackageName, getOriginalPackageName } from './utils/transform';
 import { getImports } from './utils/dependency';
 import { EventEmitter } from 'events';
@@ -40,7 +39,7 @@ export class Resolver {
 
   private contentResolver = async (params: File) => {
     const { name, path = '' } = params;
-    const version = this.resolutions[name] ?? params.version;
+    const version = this.resolutions[name] ?? params.version ?? '>=0';
     const key = `${name}@${version}/${path}`;
     if (this.downloadCache.includes(key)) {
       return '';
@@ -61,13 +60,13 @@ export class Resolver {
 
   private setFileContentAndEmit(name: string, content: string) {
     if (!this.files.get(name) && !this.cache.get(name)) {
-      this.emitter.emit('add', { name, content });
+      this.emitter.emit('add', { name: getOriginalPackageName(name), content });
       this.files.set(name, content);
     }
   }
 
   private async getPackageJson(params: { name: string, version?: string }) {
-    const fileName = getOriginalPackageName(path.join(params.name, 'package.json'));
+    const fileName = path.join(params.name, 'package.json');
     const cache = this.files.get(fileName) || this.cache.get(fileName);
     if (cache) {
       return JSON.parse(cache);
@@ -108,7 +107,7 @@ export class Resolver {
   public async addFile(params: { name: string, version?: string, path: string }) {
     const content = await this.contentResolver(params);
     if (content) {
-      const fileName = getOriginalPackageName(path.join(params.name, params.path));
+      const fileName = path.join(params.name, params.path);
       this.setFileContentAndEmit(fileName, content);
     }
     const imports = getImports(content);
@@ -164,8 +163,9 @@ export class Resolver {
   public getFiles() {
     return [...this.files.entries()].reduce<Record<string, string>>((acc, ele) => {
       const [file, content] = ele;
-      if (file && content) {
-        acc[file] = content;
+      const filePath = getOriginalPackageName(file);
+      if (filePath && content) {
+        acc[filePath] = content;
       }
       return acc;
     }, {})
