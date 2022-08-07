@@ -10,9 +10,23 @@ export interface ResolverOptions {
   contentResolver?: (params: File) => Promise<string>;
 }
 
+export const localContentResolver = async (params: File) => {
+  const key = `./node_modules/${params.name}/${params.path}`;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const res = require('fs').readFileSync(key, 'utf8');
+    return res as string;
+  } catch (e) {
+    return '';
+  }
+}
+
 export const unpkgContentResolver = async (params: File) => {
   const key = `${params.name}@${params.version}/${params.path}`;
   const res = await fetch(`https://unpkg.com/${key}`);
+  if (res.url.endsWith('.js')) {
+    return '';
+  }
   if (res.status !== 200) {
     return '';
   }
@@ -22,6 +36,9 @@ export const unpkgContentResolver = async (params: File) => {
 export const jsdelivrContentResolver = async (params: File) => {
   const key = `${params.name}@${params.version}/${params.path}`;
   const res = await fetch(`https://cdn.jsdelivr.net/npm/${key}`);
+  if (res.url.endsWith('.js')) {
+    return '';
+  }
   if (res.status !== 200) {
     return '';
   }
@@ -40,7 +57,7 @@ export class Resolver {
   private contentResolver = async (params: File) => {
     const { name, path = '' } = params;
     const version = this.resolutions[name] ?? params.version ?? '>=0';
-    const key = `${name}@${version}/${path}`;
+    const key = `${name}/${path}`;
     if (!name) {
       return '';
     }
@@ -62,7 +79,7 @@ export class Resolver {
   }
 
   private setFileContentAndEmit(name: string, content: string) {
-    if (!this.files.get(name) && !this.cache.get(name)) {
+    if (!this.files.get(name) && !this.cache.get(name) && content) {
       this.emitter.emit('add', { name: getOriginalPackageName(name), content });
       this.files.set(name, content);
     }
