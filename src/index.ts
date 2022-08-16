@@ -11,7 +11,7 @@ export interface ResolverOptions {
 }
 
 export const localContentResolver = async (params: File) => {
-  const key = `./node_modules/${params.name}/${params.path}`;
+  const key = path.normalize(`./node_modules/${params.name}/${params.path}`);
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const res = require('fs').readFileSync(key, 'utf8');
@@ -22,7 +22,7 @@ export const localContentResolver = async (params: File) => {
 }
 
 export const unpkgContentResolver = async (params: File) => {
-  const key = `${params.name}@${params.version}/${params.path}`;
+  const key = path.normalize(`${params.name}@${params.version}/${params.path}`);
   const res = await fetch(`https://unpkg.com/${key}`);
   if (res.url.endsWith('.js')) {
     return '';
@@ -34,7 +34,7 @@ export const unpkgContentResolver = async (params: File) => {
 }
 
 export const jsdelivrContentResolver = async (params: File) => {
-  const key = `${params.name}@${params.version}/${params.path}`;
+  const key = path.normalize(`${params.name}@${params.version}/${params.path}`);
   const res = await fetch(`https://cdn.jsdelivr.net/npm/${key}`);
   if (res.url.endsWith('.js')) {
     return '';
