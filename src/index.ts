@@ -45,6 +45,8 @@ export const jsdelivrContentResolver = async (params: File) => {
   return await res.text();
 }
 
+export { getImports };
+
 export class Resolver {
   private files = new Map<string, string>();
   /** cached files that do not output */
